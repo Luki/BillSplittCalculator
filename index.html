@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Bill Splitting Calculator (Demo)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    html, body {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      background: #222831;
+      font-family: Arial, sans-serif;
+    }
+    .centered {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .container {
+      background: #222831;
+      border-radius: 20px;
+      box-shadow: 0 2px 24px #0003;
+      padding: 60px 40px 40px 40px;
+      text-align: center;
+      width: 600px;
+      max-width: 98vw;
+    }
+    .title {
+      font-size: 2.5em;
+      color: #00adb5;
+      font-weight: bold;
+      margin-bottom: 30px;
+    }
+    label {
+      font-size: 1.5em;
+      color: #eeeeee;
+      display: block;
+      margin: 30px 0 10px 0;
+      text-align: left;
+    }
+    input, select {
+      font-size: 1.3em;
+      padding: 10px;
+      border-radius: 8px;
+      border: none;
+      background: #393e46;
+      color: #eeeeee;
+      width: 100%;
+      margin-bottom: 10px;
+      box-sizing: border-box;
+    }
+    .search-bar {
+      margin-bottom: 10px;
+    }
+    .btn {
+      font-size: 1.5em;
+      font-weight: bold;
+      background: #00adb5;
+      color: #eeeeee;
+      border: none;
+      border-radius: 8px;
+      padding: 18px 40px;
+      margin: 30px 10px 0 10px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .btn:hover {
+      background: #393e46;
+      color: #00adb5;
+    }
+    .result-popup {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(34,40,49,0.95);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+    }
+    .result-content {
+      background: #222831;
+      border-radius: 20px;
+      box-shadow: 0 2px 24px #0003;
+      padding: 60px 40px 40px 40px;
+      text-align: center;
+      width: 500px;
+      max-width: 98vw;
+    }
+    .result-title {
+      font-size: 2em;
+      color: #00adb5;
+      font-weight: bold;
+      margin-bottom: 30px;
+    }
+    .result-details {
+      font-size: 1.5em;
+      color: #eeeeee;
+      margin-bottom: 30px;
+      white-space: pre-line;
+    }
+    .close-btn {
+      font-size: 1.2em;
+      background: #00adb5;
+      color: #eeeeee;
+      border: none;
+      border-radius: 8px;
+      padding: 12px 30px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .close-btn:hover {
+      background: #393e46;
+      color: #00adb5;
+    }
+  </style>
+</head>
+<body>
+  <div class="centered">
+    <div class="container">
+      <div class="title">Bill Splitting Calculator (Demo)</div>
+      <form id="billForm" autocomplete="off">
+        <label for="amount">Total Bill Amount:</label>
+        <input type="number" id="amount" min="0" step="any" required>
+
+        <label for="people">Number of People:</label>
+        <input type="number" id="people" min="1" step="1" required>
+
+        <label for="billSearch">Search Bill Currency:</label>
+        <input type="text" id="billSearch" class="search-bar" placeholder="Type to search...">
+        <select id="billCurrency"></select>
+
+        <label for="splitSearch">Search Split Currency:</label>
+        <input type="text" id="splitSearch" class="search-bar" placeholder="Type to search...">
+        <select id="splitCurrency"></select>
+
+  <button type="submit" class="btn">Calculate</button>
+      </form>
+    </div>
+  </div>
+
+  <div id="resultPopup" class="result-popup" style="display:none;">
+    <div class="result-content">
+      <div class="result-title">Split Result</div>
+      <div class="result-details" id="resultDetails"></div>
+      <button class="close-btn" onclick="closeResult()">Close</button>
+    </div>
+  </div>
+
+  <script>
+    // Currency data (major ISO 4217 + BTC, RON)
+    const currencies = [
+      ["USD", "$"], ["EUR", "€"], ["GBP", "£"], ["JPY", "¥"], ["CNY", "¥"], ["INR", "₹"], ["RUB", "₽"], ["KRW", "₩"], ["BRL", "R$"], ["AUD", "$"],
+      ["CAD", "$"], ["CHF", "Fr"], ["SEK", "kr"], ["NOK", "kr"], ["DKK", "kr"], ["PLN", "zł"], ["TRY", "₺"], ["ZAR", "R"], ["MXN", "$"], ["SGD", "$"],
+      ["HKD", "$"], ["NZD", "$"], ["THB", "฿"], ["IDR", "Rp"], ["MYR", "RM"], ["PHP", "₱"], ["CZK", "Kč"], ["HUF", "Ft"], ["ILS", "₪"], ["SAR", "﷼"],
+      ["AED", "د.إ"], ["EGP", "ج.م"], ["NGN", "₦"], ["PKR", "₨"], ["CLP", "$"], ["COP", "$"], ["ARS", "$"], ["TWD", "$"], ["VND", "₫"], ["UAH", "₴"],
+      ["KZT", "₸"], ["QAR", "﷼"], ["KWD", "د.ك"], ["MAD", "د.م."], ["JOD", "د.ا"], ["OMR", "ر.ع."], ["BHD", "ب.د"], ["LKR", "₨"], ["BDT", "৳"], ["ISK", "kr"],
+      ["BTC", "₿"], ["RON", "lei"]
+      // Add more ISO 4217 codes as needed
+    ];
+
+    // Static demo exchange rates to USD
+    const rates = {
+      "USD": 1.0, "EUR": 1.08, "GBP": 1.27, "JPY": 0.0069, "CNY": 0.14, "INR": 0.012, "RUB": 0.011, "KRW": 0.00075, "BRL": 0.20, "AUD": 0.66,
+      "CAD": 0.73, "CHF": 1.13, "SEK": 0.093, "NOK": 0.094, "DKK": 0.14, "PLN": 0.25, "TRY": 0.031, "ZAR": 0.053, "MXN": 0.059, "SGD": 0.74,
+      "HKD": 0.13, "NZD": 0.60, "THB": 0.028, "IDR": 0.000065, "MYR": 0.21, "PHP": 0.018, "CZK": 0.044, "HUF": 0.0028, "ILS": 0.27, "SAR": 0.27,
+      "AED": 0.27, "EGP": 0.021, "NGN": 0.00065, "PKR": 0.0036, "CLP": 0.0011, "COP": 0.00025, "ARS": 0.0011, "TWD": 0.031, "VND": 0.000042,
+      "UAH": 0.025, "KZT": 0.0022, "QAR": 0.27, "KWD": 3.25, "MAD": 0.099, "JOD": 1.41, "OMR": 2.60, "BHD": 2.65, "LKR": 0.0033, "BDT": 0.0091, "ISK": 0.0072,
+      "BTC": 65000.0, "RON": 0.22
+      // Add more rates as needed
+    };
+
+    // Utility to populate select with filtered currencies
+    function populateCurrencySelect(select, searchValue) {
+      select.innerHTML = '';
+      const filtered = currencies.filter(([code, symbol]) =>
+        code.toLowerCase().includes(searchValue.toLowerCase()) ||
+        symbol.toLowerCase().includes(searchValue.toLowerCase())
+      );
+      (filtered.length ? filtered : currencies).forEach(([code, symbol]) => {
+        const option = document.createElement('option');
+        option.value = code;
+        option.textContent = `${code} (${symbol})`;
+        select.appendChild(option);
+      });
+    }
+
+    // Initial population
+    window.onload = function() {
+      populateCurrencySelect(document.getElementById('billCurrency'), '');
+      populateCurrencySelect(document.getElementById('splitCurrency'), '');
+    };
+
+    // Search bar filtering
+    document.getElementById('billSearch').addEventListener('input', function() {
+      populateCurrencySelect(document.getElementById('billCurrency'), this.value);
+    });
+    document.getElementById('splitSearch').addEventListener('input', function() {
+      populateCurrencySelect(document.getElementById('splitCurrency'), this.value);
+    });
+
+    // Form submission
+    document.getElementById('billForm').onsubmit = function(e) {
+      e.preventDefault();
+      const amount = parseFloat(document.getElementById('amount').value);
+      const people = parseInt(document.getElementById('people').value);
+      const billCur = document.getElementById('billCurrency').value;
+      const splitCur = document.getElementById('splitCurrency').value;
+      if (isNaN(amount) || isNaN(people) || people <= 0) {
+        alert('Please enter valid numbers and make sure people > 0.');
+        return;
+      }
+      const billSym = currencies.find(([c]) => c === billCur)?.[1] || billCur;
+      const splitSym = currencies.find(([c]) => c === splitCur)?.[1] || splitCur;
+      const usdAmount = amount * (rates[billCur] || 1.0);
+      const splitAmount = usdAmount / (rates[splitCur] || 1.0);
+      const eachPays = splitAmount / people;
+      let result = `Total Bill: ${billSym}${amount.toFixed(2)} (${billCur})\nPeople: ${people}\n\nEach Pays: `;
+      result += splitCur === 'BTC'
+        ? `${splitSym}${eachPays.toFixed(6)} (${splitCur})`
+        : `${splitSym}${eachPays.toFixed(2)} (${splitCur})`;
+      document.getElementById('resultDetails').textContent = result;
+      document.getElementById('resultPopup').style.display = 'flex';
+    };
+
+    function closeResult() {
+      document.getElementById('resultPopup').style.display = 'none';
+    }
+  </script>
+</body>
+</html>
